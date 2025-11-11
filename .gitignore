@@ -1,0 +1,36 @@
+# Java / Spring
+target/
+*.class
+*.log
+*.jar
+*.war
+
+# Maven
+/.mvn/
+!/.mvn/wrapper/maven-wrapper.jar
+/.settings
+
+# Gradle
+/.gradle/
+/build/
+
+# IDE
+*.iml
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# env / secrets
+.env
+*.secret
+application-*.yml
+credentials.properties
+
+# Docker
+docker-compose.override.yml
+
+# logs
+logs/

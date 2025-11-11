@@ -1,0 +1,26 @@
+package com.example.orderservice.model;
+
+import lombok.Data;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import java.math.BigDecimal;
+import java.util.Date;
+
+@Entity
+@Data // Lombok 注解，自动生成 getter, setter 等
+public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String title;
+    private String image;
+    private BigDecimal price;
+    private Integer stock; // 核心字段：库存
+    private Date startTime;
+    private Date endTime;
+}

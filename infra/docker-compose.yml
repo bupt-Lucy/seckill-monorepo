@@ -1,0 +1,122 @@
+services:
+  # 服务1: 单个 Redis 实例
+  redis:
+    image: redis:6.2
+    container_name: seckill-redis-single
+    ports:
+      - "6379:6379"
+    networks:
+      - monitor-net
+
+  # 【新增】RocketMQ "总指挥" (NameServer)
+  rocketmq-nameserver:
+    image: apache/rocketmq:4.9.4
+    container_name: rmq-nameserver
+    ports:
+      - "9876:9876"
+    networks:
+      - monitor-net
+    # 【核心新增】告诉它要运行什么命令
+    command: sh ./mqnamesrv
+
+  # 【新增】RocketMQ "工人" (Broker)
+  rocketmq-broker:
+    image: apache/rocketmq:4.9.4
+    container_name: rmq-broker
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+    networks:
+      - monitor-net
+    environment:
+      - NAMESRV_ADDR=rocketmq-nameserver:9876
+      - AUTO_CREATE_TOPIC_ENABLE=true
+      - ROCKETMQ_BROKER_CONFIG_brokerIP1=localhost
+    depends_on:
+      - rocketmq-nameserver
+    # 【核心新增】告诉它要运行什么命令
+    command: sh ./mqbroker
+
+  rocketmq-dashboard:
+    image: apacherocketmq/rocketmq-dashboard:1.0.0
+    container_name: rmq-dashboard
+    ports:
+      - "8088:8080" # 仪表盘的 Web 端口
+    environment:
+      - "NAMESRV_ADDR=rocketmq-nameserver:9876"
+    depends_on:
+      - rocketmq-nameserver
+
+  # 服务3: Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - monitor-net
+    # 【新增】为容器添加一条自定义的主机记录
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 服务4: Grafana
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - monitor-net
+    depends_on:
+      - prometheus
+
+  # 【新增】SkyWalking OAP (数据中心)
+  skywalking-oap:
+    image: apache/skywalking-oap-server:9.1.0
+    container_name: skywalking-oap
+    ports:
+      - "11800:11800" # 【关键】将 OAP 的数据入口 11800 映射到主机
+      - "12800:12800"
+    networks:
+      - monitor-net # 加入到我们现有的网络中
+    environment:
+      SW_STORAGE: h2 # 保持简单，使用 H2 内存数据库
+
+  # 【新增】SkyWalking UI (可视化界面)
+  skywalking-ui:
+    image: apache/skywalking-ui:9.1.0
+    container_name: skywalking-ui
+    ports:
+      - "8082:8080" # 将 UI 映射到主机的 8081 端口
+    networks:
+      - monitor-net # 加入到我们现有的网络中
+    environment:
+      # 【关键】告诉 UI 去哪里找 OAP。
+      # 注意：这里我们不能用 localhost，因为 UI 在容器里。
+      # 我们用服务名 skywalking-oap
+      SW_OAP_ADDRESS: http://skywalking-oap:12800
+    depends_on:
+      - skywalking-oap
+
+  nacos:
+    image: nacos/nacos-server:v2.2.3
+    container_name: nacos-server
+    environment:
+      - PREFER_HOST_MODE=hostname
+      - MODE=standalone
+    # 【还原】删除了所有 MySQL 相关的环境变量
+    # 【还原】删除了 network_mode: "host"
+    # 【还原】删除了 volumes 挂载
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "9849:9849"
+    networks:
+      - monitor-net
+    # 【还原】删除了 extra_hosts
+# 定义一个网络，让所有容器可以互相通信
+networks:
+  monitor-net:
+    driver: bridge
