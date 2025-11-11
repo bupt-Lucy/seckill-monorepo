@@ -8,44 +8,17 @@ services:
     networks:
       - monitor-net
 
-  # 【新增】RocketMQ "总指挥" (NameServer)
-  rocketmq-nameserver:
-    image: apache/rocketmq:4.9.4
-    container_name: rmq-nameserver
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: seckill-rabbitmq
     ports:
-      - "9876:9876"
-    networks:
-      - monitor-net
-    # 【核心新增】告诉它要运行什么命令
-    command: sh ./mqnamesrv
-
-  # 【新增】RocketMQ "工人" (Broker)
-  rocketmq-broker:
-    image: apache/rocketmq:4.9.4
-    container_name: rmq-broker
-    ports:
-      - "10909:10909"
-      - "10911:10911"
+      - "5672:5672"
+      - "15672:15672"
     networks:
       - monitor-net
     environment:
-      - NAMESRV_ADDR=rocketmq-nameserver:9876
-      - AUTO_CREATE_TOPIC_ENABLE=true
-      - ROCKETMQ_BROKER_CONFIG_brokerIP1=localhost
-    depends_on:
-      - rocketmq-nameserver
-    # 【核心新增】告诉它要运行什么命令
-    command: sh ./mqbroker
-
-  rocketmq-dashboard:
-    image: apacherocketmq/rocketmq-dashboard:1.0.0
-    container_name: rmq-dashboard
-    ports:
-      - "8088:8080" # 仪表盘的 Web 端口
-    environment:
-      - "NAMESRV_ADDR=rocketmq-nameserver:9876"
-    depends_on:
-      - rocketmq-nameserver
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
 
   # 服务3: Prometheus
   prometheus:
