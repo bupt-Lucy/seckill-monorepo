@@ -1,7 +1,6 @@
-// D:\Javaproject\seckill-api\src\main\java\com\example\seckillsystem\controller\SeckillController.java
 package com.example.seckillsystem.controller;
 
-import com.example.seckillsystem.service.RedisPreheatService;
+import com.example.seckillsystem.service.dto.SeckillResult;
 import com.example.seckillsystem.service.SeckillService;
 import com.google.common.hash.BloomFilter; // 【新增】
 import org.slf4j.Logger;
@@ -16,7 +15,7 @@ public class SeckillController {
     @Autowired
     private SeckillService seckillService;
 
-    private static final Logger log = LoggerFactory.getLogger(RedisPreheatService.class);
+    private static final Logger log = LoggerFactory.getLogger(SeckillController.class);
 
     @Autowired
     private BloomFilter<Long> productBloomFilter; // 【新增】注入布隆过滤器
@@ -37,15 +36,21 @@ public class SeckillController {
         // ... (这部分是 V5.1 的优化，我们先专注 V5.2 核心) ...
 
         // 3. 通过布隆过滤器后，才进入核心秒杀逻辑
-        String result = seckillService.submitSeckillOrder(productId, userId);
+        SeckillResult result = seckillService.submitSeckillOrder(productId, userId);
 
-        // 根据结果返回不同的状态码
-        if (result.contains("成功")) {
-            return ResponseEntity.ok(result);
-        } else if (result.contains("排队")) {
-            return ResponseEntity.accepted().body(result); // 202 Accepted
-        } else {
-            return ResponseEntity.badRequest().body(result); // 400 Bad Request
+        if (result.isAccepted()) {
+            return ResponseEntity.accepted().body(result.getMessage());
+        }
+
+        switch (result.getCode()) {
+            case "DUPLICATE":
+                return ResponseEntity.status(409).body(result.getMessage());
+            case "SOLD_OUT":
+                return ResponseEntity.status(410).body(result.getMessage());
+            case "BUCKET_EMPTY":
+                return ResponseEntity.status(429).body(result.getMessage());
+            default:
+                return ResponseEntity.status(500).body(result.getMessage());
         }
     }
 

@@ -3,12 +3,10 @@ package com.example.seckillsystem.config;
 
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
-import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableCaching // 【关键】启用 Spring 的 @Cacheable 功能
 public class CacheConfig {
 
     /**
@@ -23,6 +21,4 @@ public class CacheConfig {
         // 误判率越低，需要的内存空间就越大
         return BloomFilter.create(Funnels.longFunnel(), 10000, 0.01);
     }
-
-    // Caffeine 的 CacheManager 会由 Spring Boot 在 @EnableCaching 后自动配置
 }
