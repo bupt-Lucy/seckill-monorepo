@@ -43,12 +43,16 @@ public class SeckillController {
         }
 
         switch (result.getCode()) {
+            case "NOT_FOUND":
+                return ResponseEntity.status(404).body(result.getMessage());
             case "DUPLICATE":
                 return ResponseEntity.status(409).body(result.getMessage());
             case "SOLD_OUT":
                 return ResponseEntity.status(410).body(result.getMessage());
             case "BUCKET_EMPTY":
                 return ResponseEntity.status(429).body(result.getMessage());
+            case "CACHE_LOADING":
+                return ResponseEntity.status(503).body(result.getMessage());
             default:
                 return ResponseEntity.status(500).body(result.getMessage());
         }

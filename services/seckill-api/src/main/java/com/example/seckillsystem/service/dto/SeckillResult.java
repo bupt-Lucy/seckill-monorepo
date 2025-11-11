@@ -31,6 +31,14 @@ public class SeckillResult {
         return new SeckillResult(false, "BUCKET_EMPTY", "当前库存不足，请稍后再试", null);
     }
 
+    public static SeckillResult notReady() {
+        return new SeckillResult(false, "CACHE_LOADING", "商品信息加载中，请稍后再试", null);
+    }
+
+    public static SeckillResult notFound() {
+        return new SeckillResult(false, "NOT_FOUND", "商品不存在或活动未开启", null);
+    }
+
     public static SeckillResult error(String message) {
         return new SeckillResult(false, "ERROR", message, null);
     }

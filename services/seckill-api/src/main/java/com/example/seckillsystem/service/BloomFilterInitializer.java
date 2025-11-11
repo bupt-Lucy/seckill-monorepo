@@ -23,16 +23,18 @@ public class BloomFilterInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (properties.getProductIds().isEmpty()) {
+        var productIds = properties.resolvedProductIds();
+
+        if (productIds.isEmpty()) {
             log.warn("No productIds configured for Bloom filter preheat. Requests will rely solely on runtime writes.");
             return;
         }
 
-        properties.getProductIds().forEach(id -> {
+        productIds.forEach(id -> {
             productBloomFilter.put(id);
             log.debug("Bloom filter loaded productId={}", id);
         });
 
-        log.info("Bloom filter preheat complete: {} productIds registered", properties.getProductIds().size());
+        log.info("Bloom filter preheat complete: {} productIds registered", productIds.size());
     }
 }
