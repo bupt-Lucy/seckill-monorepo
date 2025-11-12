@@ -1,14 +1,17 @@
-// D:\Javaproject\seckill-api\src\main\java\com\example\seckillsystem\config\CacheConfig.java
 package com.example.seckillsystem.config;
 
+import com.example.seckillsystem.service.props.SeckillProperties;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
-import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.concurrent.TimeUnit;
+
 @Configuration
-@EnableCaching // 【关键】启用 Spring 的 @Cacheable 功能
 public class CacheConfig {
 
     /**
@@ -24,5 +27,13 @@ public class CacheConfig {
         return BloomFilter.create(Funnels.longFunnel(), 10000, 0.01);
     }
 
-    // Caffeine 的 CacheManager 会由 Spring Boot 在 @EnableCaching 后自动配置
+    @Bean
+    public CacheManager caffeineCacheManager(SeckillProperties properties) {
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager("inventory");
+        cacheManager.setAllowNullValues(false);
+        cacheManager.setCaffeine(Caffeine.newBuilder()
+                .maximumSize(properties.getLocalCacheMaximumSize())
+                .expireAfterWrite(properties.getLocalCacheExpireAfterWriteSeconds(), TimeUnit.SECONDS));
+        return cacheManager;
+    }
 }
