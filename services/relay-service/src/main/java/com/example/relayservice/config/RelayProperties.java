@@ -1,33 +1,23 @@
 package com.example.relayservice.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-import org.springframework.validation.annotation.Validated;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-@Component("relayProperties")
+import org.springframework.stereotype.Component;
+
+@Component
 @ConfigurationProperties(prefix = "relay")
-@Validated
 public class RelayProperties {
 
-    @NotEmpty(message = "At least one stream binding must be configured")
-    @Valid
     private List<StreamBinding> streams = new ArrayList<>();
-
     private Duration pollInterval = Duration.ofMillis(200);
-    private Duration blockTimeout = Duration.ofSeconds(1);
-    private int batchSize = 50;
-    private Duration confirmTimeout = Duration.ofSeconds(5);
+    private Duration blockTimeout = Duration.ofMillis(1000);
+    private int batchSize = 20;
     private Duration claimIdle = Duration.ofSeconds(60);
-    private Duration claimInterval = Duration.ofSeconds(30);
-    private int claimBatchSize = 100;
+    private int claimBatchSize = 50;
 
     public List<StreamBinding> getStreams() {
         return streams;
@@ -61,28 +51,12 @@ public class RelayProperties {
         this.batchSize = batchSize;
     }
 
-    public Duration getConfirmTimeout() {
-        return confirmTimeout;
-    }
-
-    public void setConfirmTimeout(Duration confirmTimeout) {
-        this.confirmTimeout = confirmTimeout;
-    }
-
     public Duration getClaimIdle() {
         return claimIdle;
     }
 
     public void setClaimIdle(Duration claimIdle) {
         this.claimIdle = claimIdle;
-    }
-
-    public Duration getClaimInterval() {
-        return claimInterval;
-    }
-
-    public void setClaimInterval(Duration claimInterval) {
-        this.claimInterval = claimInterval;
     }
 
     public int getClaimBatchSize() {
@@ -94,21 +68,14 @@ public class RelayProperties {
     }
 
     public static class StreamBinding {
-        @NotBlank
         private String streamKey;
-        @NotBlank
         private String group;
-        @NotBlank
         private String consumerName;
-        @NotBlank
         private String exchange;
-        @NotBlank
         private String routingKey;
         private String dlqKey;
         private String attemptsKey;
-        @Min(1)
         private int maxAttempts = 5;
-        private boolean deleteAfterAck = true;
 
         public String getStreamKey() {
             return streamKey;
@@ -172,18 +139,6 @@ public class RelayProperties {
 
         public void setMaxAttempts(int maxAttempts) {
             this.maxAttempts = maxAttempts;
-        }
-
-        public boolean isDeleteAfterAck() {
-            return deleteAfterAck;
-        }
-
-        public void setDeleteAfterAck(boolean deleteAfterAck) {
-            this.deleteAfterAck = deleteAfterAck;
-        }
-
-        public String identity() {
-            return streamKey + "|" + group + "|" + consumerName;
         }
     }
 }
