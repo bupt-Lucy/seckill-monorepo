@@ -7,17 +7,25 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.domain.Range;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.StreamOperations;
+import org.springframework.data.redis.connection.stream.MapRecord;
+import org.springframework.data.redis.connection.stream.PendingMessage;
+import org.springframework.data.redis.connection.stream.PendingMessages;
+import org.springframework.data.redis.connection.stream.PendingMessagesSummary;
+import org.springframework.data.redis.connection.stream.ReadOffset;
+import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.data.redis.connection.stream.StreamOffset;
+import org.springframework.data.redis.connection.stream.StreamReadOptions;
+import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.util.concurrent.SettableListenableFuture;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -75,32 +83,56 @@ public class RedisStreamRelay implements InitializingBean {
     @Scheduled(fixedDelayString = "#{@relayProperties.claimIdle.toMillis()}")
     public void reclaimPending() {
         StreamOperations<String, String, String> ops = redisTemplate.opsForStream();
+
         for (StreamBinding binding : properties.getStreams()) {
-            PendingMessages pending = ops.pending(binding.getStreamKey(), binding.getGroup());
-            if (pending == null || pending.isEmpty()) {
+            PendingMessagesSummary sum = ops.pending(binding.getStreamKey(), binding.getGroup());
+            if (sum == null || sum.getTotalPendingMessages() == 0) {
                 continue;
             }
 
-            List<RecordId> toClaim = pending.stream()
-                    .filter(msg -> msg.getTotalDeliveryCount() > 0
-                            && msg.getElapsedTimeSinceLastDelivery().compareTo(properties.getClaimIdle()) > 0)
-                    .limit(properties.getClaimBatchSize())
-                    .map(PendingMessage::getId)
-                    .collect(Collectors.toList());
+            Range<String> range = Range.closed(sum.minMessageId(), sum.maxMessageId());
+            PendingMessages batch = ops.pending(
+                    binding.getStreamKey(),
+                    binding.getGroup(),
+                    range,
+                    properties.getClaimBatchSize()
+            );
+            if (batch == null) {
+                continue;
+            }
 
+            List<RecordId> toClaim = new ArrayList<>();
+            for (PendingMessage pm : batch) {
+                if (pm.getTotalDeliveryCount() > 0
+                        && pm.getElapsedTimeSinceLastDelivery().compareTo(properties.getClaimIdle()) > 0) {
+                    toClaim.add(pm.getId());
+                }
+            }
             if (toClaim.isEmpty()) {
                 continue;
             }
 
+// 显式构造 Duration（其实直接用 properties.getClaimIdle() 也行）
+            java.time.Duration idle = properties.getClaimIdle();
+
             List<MapRecord<String, String, String>> claimed = ops.claim(
-                    binding.getStreamKey(), binding.getGroup(), binding.getConsumerName(),
-                    properties.getClaimIdle().toMillis(), toClaim.toArray(new RecordId[0]));
+                    binding.getStreamKey(),
+                    binding.getGroup(),             // 消费者组（String）
+                    binding.getConsumerName(),      // 新 owner/消费者（String）
+                    idle,                           // java.time.Duration
+                    toClaim.toArray(new RecordId[0])
+            );
+
 
             if (claimed != null) {
-                claimed.forEach(record -> processRecord(binding, record));
+                claimed.forEach(rec -> processRecord(binding, rec));
             }
         }
     }
+
+
+
+
 
     private void processRecord(StreamBinding binding, MapRecord<String, String, String> record) {
         String payload = record.getValue().get("payload");
@@ -127,8 +159,15 @@ public class RedisStreamRelay implements InitializingBean {
             throws Exception {
         CorrelationData correlation = new CorrelationData(record.getId().getValue());
         rabbitTemplate.convertAndSend(binding.getExchange(), binding.getRoutingKey(), payload, correlation);
-        CompletableFuture<CorrelationData.Confirm> future = correlation.getFuture();
-        CorrelationData.Confirm confirm = future.get(5, TimeUnit.SECONDS);
+        // 将 SettableListenableFuture 转换为 CompletableFuture
+        SettableListenableFuture<CorrelationData.Confirm> future = correlation.getFuture();
+        CompletableFuture<CorrelationData.Confirm> completableFuture = new CompletableFuture<>();
+        future.addCallback(
+                completableFuture::complete,
+                completableFuture::completeExceptionally
+        );
+        CorrelationData.Confirm confirm = completableFuture.get(5, TimeUnit.SECONDS);
+
         return confirm != null && confirm.isAck();
     }
 

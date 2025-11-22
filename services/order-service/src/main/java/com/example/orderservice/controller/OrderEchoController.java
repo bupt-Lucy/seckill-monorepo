@@ -1,6 +1,6 @@
 package com.example.orderservice.controller; // 注意包名
 
-import com.example.orderservice.consumer.OrderConsumerService;
+import com.example.orderservice.consumer.OrderProcessingService;
 import com.example.orderservice.exception.SeckillBusinessException;
 import com.example.orderservice.model.SeckillOrder;
 import org.slf4j.Logger;
@@ -21,7 +21,7 @@ public class OrderEchoController {
     @Value("${server.port}")
     private String serverPort;
 
-    private static final Logger log = LoggerFactory.getLogger(OrderConsumerService.class);
+    private static final Logger log = LoggerFactory.getLogger(OrderProcessingService.class);
 
     @GetMapping("/api/v1/order/echo/{message}")
     public String echo(@PathVariable String message) {

@@ -1,16 +1,12 @@
-package com.example.orderservice.model;
+package com.example.seckillsystem.model;
 
 import lombok.Data;
-import javax.persistence.Table;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.math.BigDecimal;
 import java.util.Date;
 
-@Data // Lombok 注解，自动生成 getter, setter 等
 @Entity @Table(name="product")
+@Data // Lombok 注解，自动生成 getter, setter 等
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
