@@ -4,9 +4,11 @@ import com.example.seckillsystem.model.Product;
 import com.example.seckillsystem.repository.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
 import java.util.Optional;
 
 /**
@@ -14,6 +16,7 @@ import java.util.Optional;
  */
 @Component
 @Primary
+@ConditionalOnClass(DataSource.class)
 public class JpaProductInventoryLoader implements ProductInventoryLoader {
 
     private static final Logger log = LoggerFactory.getLogger(JpaProductInventoryLoader.class);
