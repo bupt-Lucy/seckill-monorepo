@@ -1,9 +1,8 @@
 package com.example.seckillsystem.service;
 
 import com.example.seckillsystem.service.dto.SeckillResult;
-import com.example.seckillsystem.service.inventory.InventoryCacheFacade;
-import com.example.seckillsystem.service.inventory.ProductInventorySnapshot;
 import com.example.seckillsystem.service.props.SeckillProperties;
+import com.example.seckillsystem.repository.ProductRepository;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
@@ -30,19 +29,18 @@ public class SeckillService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final DefaultRedisScript<Long> seckillScript;
     private final SeckillProperties properties;
-    private final InventoryCacheFacade inventoryCacheFacade;
+    private final ProductRepository productRepository;
     private final RedissonClient redissonClient;
     private final Random random = new Random();
 
     public SeckillService(RedisTemplate<String, Object> redisTemplate,
                           @Qualifier("seckillScriptV5") DefaultRedisScript<Long> seckillScript,
                           SeckillProperties properties,
-                          InventoryCacheFacade inventoryCacheFacade,
-                          RedissonClient redissonClient) {
+                          ProductRepository productRepository, RedissonClient redissonClient) {
         this.redisTemplate = redisTemplate;
         this.seckillScript = seckillScript;
         this.properties = properties;
-        this.inventoryCacheFacade = inventoryCacheFacade;
+        this.productRepository = productRepository;
         this.redissonClient = redissonClient;
     }
 
@@ -146,17 +144,22 @@ public class SeckillService {
                 return CacheWarmupState.READY;
             }
 
-            ProductInventorySnapshot snapshot = inventoryCacheFacade.load(productId);
-            if (snapshot == null) {
-                log.warn("Product {} not found in L3 data source; caching empty sentinel", productId);
+            long totalStock = productRepository.findById(productId)
+                    .map(product -> {
+                        Integer stock = product.getStock();
+                        return stock != null ? stock.longValue() : 0L;
+                    })
+                    .orElse(-1L);
+
+            if (totalStock < 0) {
+                log.warn("Product {} not found in database; caching empty sentinel", productId);
                 redisTemplate.opsForValue().set(totalKey, -1L,
                         properties.getEmptyCacheTtlSeconds(), TimeUnit.SECONDS);
                 return CacheWarmupState.NOT_FOUND;
             }
 
-            long totalStock = snapshot.totalStock();
-            if (totalStock <= 0) {
-                log.info("Product {} has no remaining stock in L3 data source; caching sold-out sentinel", productId);
+            if (totalStock == 0) {
+                log.info("Product {} has no remaining stock in database; caching sold-out sentinel", productId);
                 redisTemplate.opsForValue().set(totalKey, -1L,
                         properties.getEmptyCacheTtlSeconds(), TimeUnit.SECONDS);
                 return CacheWarmupState.SOLD_OUT;

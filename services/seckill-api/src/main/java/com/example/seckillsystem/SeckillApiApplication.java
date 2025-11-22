@@ -11,6 +11,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @EnableDiscoveryClient // 【新增】激活 Nacos 服务发现
 @EnableFeignClients // 【新增】激活 Feign 客户端功能
+@EnableJpaRepositories(basePackages = "com.example.seckillsystem.repository")
+@EntityScan(basePackages = "com.example.seckillsystem.model")
 @EnableCaching
 public class SeckillApiApplication {
     public static void main(String[] args) {
